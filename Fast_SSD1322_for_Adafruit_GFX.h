@@ -1,12 +1,15 @@
 /*********************************************************************
-SSD1322_for_Adafruit_GFX
+Fast_SSD1322_for_Adafruit_GFX
 
 This is a library for the Greyscale SSD1322 Controller based OLED
 License: BSD
 
+Forked Oct 2023 by bringert from the venice1200 SSD1322 fork
+and modfied for an SSD1322 OLED with 128x64 resolution. Only tested
+with hardware SPI and a 128x64 display.
+
 Forked in 09/2021 by venice1200 from the Adafruit SSD1327 Library 
 and modfied for an SSD1322 OLED with 256x64 Pixel.
-Other OLED Resolutions and Interfaces (I2C, 3SPI,6800,80xx) are currently (2021-09-14) not tested.
 
 
 -----------------------------------------------------------

@@ -1,6 +1,8 @@
 BSD 3-Clause License
 
+Copyright (c) 2023, bringert
 Copyright (c) 2021, venice1200
+Copyright (c) 2012, Adafruit Industries
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

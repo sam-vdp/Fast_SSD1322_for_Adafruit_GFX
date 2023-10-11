@@ -1,4 +1,4 @@
-#include <SSD1322_for_Adafruit_GFX.h>
+#include <Fast_SSD1322_for_Adafruit_GFX.h>
 
 #define OLED_CS 26
 #define OLED_DC 25

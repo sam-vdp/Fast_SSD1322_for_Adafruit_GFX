@@ -1,4 +1,4 @@
-#include <SSD1322_for_Adafruit_GFX.h>
+#include <Fast_SSD1322_for_Adafruit_GFX.h>
 
 // Used for software SPI
 #define OLED_CLK 13
@@ -44,7 +44,7 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
 void setup()   {                
   Serial.begin(9600);
   //while (! Serial) delay(100);
-  Serial.println("SSD1327 OLED test");
+  Serial.println("SSD1322 OLED test");
   
   if ( ! display.begin(0x3D) ) {
      Serial.println("Unable to initialize OLED");

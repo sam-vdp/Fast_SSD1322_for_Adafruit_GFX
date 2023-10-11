@@ -3,6 +3,11 @@ SSD1322 OLED Library to use with the Adafruit GFX/GrayOLED Library
   
 License: BSD  
   
+Forked Oct 2023 by bringert from the venice1200 SSD1322 fork
+and modfied for an SSD1322 OLED with 128x64 resolution, and with a much faster
+hardware bulk SPI implementation. On an Arduino Nano 33 BLE, the full 128x64 display
+can be updated in 16 ms. Only tested with hardware SPI and a 128x64 display.
+  
 Forked in 09/2021 from the Adafruit SSD1327 Library (https://github.com/adafruit/Adafruit_SSD1327)  
 and modified for the SSD1322 Display Controller with 256x64 Pixel OLED Display Size.  
 Other OLED Resolutions and Interfaces (I2C,3SPI,6800,80xx) are currently (2021-09-14) untested.  
