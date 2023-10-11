@@ -72,7 +72,6 @@ You will find the orginal Library here https://github.com/adafruit/Adafruit_SSD1
 //#define SSD1322_SETBRIGHTNESS 0x82
 //#define SSD1322_SETLUT 0x91
 
-
 /*! The controller object for SSD1322 OLED displays */
 class Adafruit_SSD1322 : public Adafruit_GrayOLED {
 public:
@@ -101,6 +100,8 @@ public:
 private:
   int8_t page_offset = 0;
   int8_t column_offset = 0;
+  uint8_t *write_buffer = NULL;
+
 };
 
 #endif

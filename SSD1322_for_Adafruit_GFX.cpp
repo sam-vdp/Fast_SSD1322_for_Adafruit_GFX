@@ -137,7 +137,12 @@ Adafruit_SSD1322::Adafruit_SSD1322(uint16_t w, uint16_t h, SPIClass *spi,
 /*!
     @brief  Destructor for Adafruit_SSD1322 object.
 */
-Adafruit_SSD1322::~Adafruit_SSD1322(void) {}
+Adafruit_SSD1322::~Adafruit_SSD1322(void) {
+  if (write_buffer) {
+    free(write_buffer);
+    write_buffer = NULL;
+  }
+}
 
 // ALLOCATE & INIT DISPLAY -------------------------------------------------
 
@@ -167,6 +172,10 @@ bool Adafruit_SSD1322::begin(uint8_t addr, bool reset) {
     return false;
   }
 
+  if ((!write_buffer) &&
+      !(write_buffer = (uint8_t *)malloc(WIDTH * HEIGHT))) {
+    return false;
+  }
 
 // Init Sequence
   oled_command(SSD1322_CMDLOCK);            // 0xFD
@@ -234,13 +243,7 @@ void Adafruit_SSD1322::display(void) {
   // 32-byte transfer condition below.
   yield();
 
-  //uint16_t count = WIDTH * ((HEIGHT + 7) / 8);
-  uint8_t *ptr = buffer;
   uint8_t dc_byte = 0x40;
-  uint8_t rows = HEIGHT;
-
-  uint8_t bytes_per_row = WIDTH / 2; // See fig 10-1 (64 bytes, 128 pixels)
-  uint8_t maxbuff = 128;
 
   /*
   Serial.print("Window: (");
@@ -254,23 +257,30 @@ void Adafruit_SSD1322::display(void) {
   Serial.println(")");
   */
 
-  int16_t row_start = min((int16_t)(bytes_per_row - 1), (int16_t)(window_x1 / 2));
-  int16_t row_end = max((int16_t)0, (int16_t)(window_x2 / 2));
+  uint8_t bytes_per_row = WIDTH / 2;
+  uint16_t maxbuff = 128;
 
-  int16_t first_row = min((int16_t)(rows - 1), (int16_t)window_y1);
-  int16_t last_row = max((int16_t)0, (int16_t)window_y2);
+  // If the dirty window has zero size, do nothing
+  if (window_x1 > window_x2 || window_y1 > window_y2) {
+    return;
+  }
 
-  /*
-  Serial.print("Rows: ");
-  Serial.print(first_row);
-  Serial.print(" -> ");
-  Serial.println(last_row);
+  int16_t first_dirty_row = min(HEIGHT - 1, window_y1);
+  int16_t last_dirty_row = max(0, window_y2);
 
-  Serial.print("Row start/end: ");
-  Serial.print(row_start);
-  Serial.print(" -> ");
-  Serial.println(row_end);
-  */
+  // On a 128-pixel display, each hardware column contains 2 bytes = 2 pixels
+  // So writes must be 2-byte aligned
+  int16_t first_dirty_col = min(WIDTH, 2*(window_x1/2));
+  int16_t last_dirty_col = max(0, 2*((window_x2+1)/2)-1);
+
+  uint8_t HW_FIRST_ROW = 0;
+  uint8_t hw_row_start = HW_FIRST_ROW + first_dirty_row;
+  uint8_t hw_row_end = HW_FIRST_ROW + last_dirty_row;
+
+  uint8_t HW_FIRST_COL = 28;
+  // Dividing by 2, since there are 2 pixels per addressable column
+  uint8_t hw_col_start = HW_FIRST_COL + first_dirty_col/2;
+  uint8_t hw_col_end = HW_FIRST_COL + last_dirty_col/2;
 
   if (i2c_dev) { // I2C
     // Set high speed clk
@@ -279,31 +289,59 @@ void Adafruit_SSD1322::display(void) {
   }
 
   oled_command(SSD1322_SETROW);       // 0x75, Oled from Row 00h(0) to 3Fh(63)
-  oled_data(0x00);                    // 00
-  oled_data(0x3F);                    // 63, Testing, old value 127 (0x7F)
-  oled_command(SSD1322_SETCOLUMN);    // 0x15, Oled from Column 1Ch(28) to 5B(91)
-  oled_data(0x1C);                    // 28
-  oled_data(0x5B);                    // 91
+  oled_data(hw_row_start);
+  oled_data(hw_row_end);
+  oled_command(SSD1322_SETCOLUMN);    // 0x15, Oled from Column 1C(28) to 5B(91)
+  oled_data(hw_col_start);
+  oled_data(hw_col_end);
   oled_command(SSD1322_ENWRITEDATA);  // 0x5C
 
-  for (uint8_t row = first_row; row <= last_row; row++) {
-    uint8_t bytes_remaining = row_end - row_start + 1;
-    ptr = buffer + (uint16_t)row * (uint16_t)bytes_per_row;
-    // fast forward to dirty rectangle beginning
-    ptr += row_start;
+  unsigned long write_buffer_start = micros();
 
+  size_t write_buffer_pos = 0;
+
+  // Fill the write buffer
+  // The 128x64 display uses one byte per pixel, with the 4-bit value for each
+  // pixel repeated twice in each byte
+  for (uint8_t row = first_dirty_row; row <= last_dirty_row; row++) {
+    // Pointer into the input buffer
+    uint8_t *in_ptr = &buffer[row * bytes_per_row + first_dirty_col/2];
+    // Number of bytes to read from the input buffer
+    uint8_t dirty_bytes_per_row = (last_dirty_col - first_dirty_col + 1) / 2;
+    // Points after the end of the input
+    uint8_t *in_end = in_ptr + dirty_bytes_per_row;
+    // Pointer into the output buffer
+    uint8_t *out_ptr = &write_buffer[write_buffer_pos];
+    while (in_ptr < in_end) {
+      // Get the next byte (= next two input pixels)
+      uint8_t val = *(in_ptr++);
+      // Unpack the two pixels
+      uint8_t val1 = val & 0xF0;
+      uint8_t val2 = val & 0x0F;
+      // Duplicate the nibbles and write the output
+      *(out_ptr++) = val1 | (val1 >> 4);
+      *(out_ptr++) = (val2 << 4) | val2;
+    }
+    // Two output bytes per input byte
+    write_buffer_pos += 2 * dirty_bytes_per_row;
+  }
+
+  if (i2c_dev) { // I2C
+    // TODO: the I2C code is untested
+    uint8_t *ptr = write_buffer;
+    uint16_t bytes_remaining = write_buffer_pos;
     while (bytes_remaining) {
-      uint8_t to_write = min(bytes_remaining, maxbuff);
-      if (i2c_dev) {
-        i2c_dev->write(ptr, to_write, true, &dc_byte, 1);
-      } else {
-        digitalWrite(dcPin, HIGH);
-        spi_dev->write(ptr, to_write);
-      }
-      ptr += to_write;
+      uint16_t to_write = min(bytes_remaining, maxbuff);
+      i2c_dev->write(ptr, to_write, true, &dc_byte, 1);
       bytes_remaining -= to_write;
+      ptr += to_write;
       yield();
     }
+  } else { // SPI
+    digitalWrite(dcPin, HIGH);
+    // write_and_read() is a lot faster than write(), but it overwrites the buffer.
+    // that's fine for us, since we use a write buffer
+    spi_dev->write_and_read(write_buffer, write_buffer_pos);
   }
 
   if (i2c_dev) { // I2C
@@ -312,15 +350,10 @@ void Adafruit_SSD1322::display(void) {
   }
 
   // reset dirty window
-  window_x1 = 0;
-  window_y1 = 0;
-  window_x2 = WIDTH - 1;
-  window_y2 = HEIGHT - 1;
-//  window_x1 = 1024;
-//  window_y1 = 1024;
-//  window_x2 = -1;
-//  window_y2 = -1;
-
+  window_x1 = 1024;
+  window_y1 = 1024;
+  window_x2 = -1;
+  window_y2 = -1;
 }
 
 /*!
