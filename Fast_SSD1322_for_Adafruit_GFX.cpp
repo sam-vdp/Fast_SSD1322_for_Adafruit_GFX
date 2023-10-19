@@ -181,7 +181,7 @@ bool Adafruit_SSD1322::begin(uint8_t addr, bool reset) {
 
 // Init Sequence
   oled_command(SSD1322_CMDLOCK);            // 0xFD
-  oled_data(0x12);                          // 0x12 (Unlock OLED driver IC MCU interface)
+  oled_data(SSD1322_CMDLOCK_RESET);         // 0x12 (Unlock OLED driver IC MCU interface)
   oled_command(SSD1322_DISPLAYOFF);         // 0xAE
   oled_command(SSD1322_DISPLAYCLK);         // 0xB3 (Set Oscillator Freq. & Display Clock Divider)
   oled_data(0x91);                          // 0x91 (Divide by 2, ~80 Frames/sec)
@@ -190,10 +190,10 @@ bool Adafruit_SSD1322::begin(uint8_t addr, bool reset) {
   oled_command(SSD1322_SETDISPLAYOFFSET);   // 0xA2
   oled_data(0x00);                          // 0x00 (No Offset)
   oled_command(SSD1322_SETSTARTLINE);       // 0xA1
-  oled_data(0x00);                          // 0x00 (Start Line 0)
+  oled_data(0x00);                          // 0x00 (aStart Line 0)
   oled_command(SSD1322_SEGREMAP);           // 0xA0
-  oled_data(0x14);                          // 0x14 (Horizontal address increment, Disable Column Address Re-map, Enable Nibble Re-map)
-  oled_data(0x11);                          // 0x11 (Enable Dual COM mode)
+  oled_data(SSD1322_SEGREMAP_A_DEFAULT);    // 0x14: (Horizontal address increment, Enable Nibble Re-map, Disable Column Address Re-map)
+  oled_data(SSD1322_SEGREMAP_B_DEFAULT);    // 0x11 (Enable Dual COM mode)
   oled_command(SSD1322_SETGPIO);            // 0xB5
   oled_data(0x00);                          // 0x00 (Input disabled)
   oled_command(SSD1322_FUNCSEL);            // 0xAB
@@ -420,6 +420,17 @@ void Adafruit_SSD1322::allPixelOn(void) {
 void Adafruit_SSD1322::setContrast(uint8_t level) {
   oled_command(SSD1322_SETCONTRAST);
   oled_data(level);
+}
+
+/*!
+    @brief  Enable or disable display mirroring (horizontal flip)
+    @param  i
+            If true, mirror the display contents.
+*/
+void Adafruit_SSD1322::setMirror(bool m) {
+  oled_command(SSD1322_SEGREMAP);
+  oled_data(m ? SSD1322_SEGREMAP_A_MIRRORED : SSD1322_SEGREMAP_A_DEFAULT);
+  oled_data(SSD1322_SEGREMAP_B_DEFAULT);
 }
 
 /*!

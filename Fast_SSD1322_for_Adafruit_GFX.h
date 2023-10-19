@@ -75,6 +75,24 @@ You will find the orginal Library here https://github.com/adafruit/Adafruit_SSD1
 //#define SSD1322_SETBRIGHTNESS 0x82
 //#define SSD1322_SETLUT 0x91
 
+#define SSD1322_SEGREMAP_A_VERT_ADDR_INC 0x01
+#define SSD1322_SEGREMAP_A_COL_ADDR_REMAP_ON 0x02
+#define SSD1322_SEGREMAP_A_NIBBLE_REMAP_ON 0x04
+#define SSD1322_SEGREMAP_A_SCAN_REVERSE 0x10
+#define SSD1322_SEGREMAP_A_COM_SPLIT_ON 0x20
+#define SSD1322_SEGREMAP_B_BASELINE 0x01
+#define SSD1322_SEGREMAP_B_DUAL_COM_MODE 0x10
+
+// 0x14: (Horizontal address increment, Enable Nibble Re-map, Disable Column Address Re-map)
+#define SSD1322_SEGREMAP_A_DEFAULT (SSD1322_SEGREMAP_A_SCAN_REVERSE | SSD1322_SEGREMAP_A_NIBBLE_REMAP_ON)
+// 0x16: (Horizontal address increment, Enable Nibble Re-map, Enable Column Address Re-map)
+#define SSD1322_SEGREMAP_A_MIRRORED (SSD1322_SEGREMAP_A_SCAN_REVERSE | SSD1322_SEGREMAP_A_NIBBLE_REMAP_ON | SSD1322_SEGREMAP_A_COL_ADDR_REMAP_ON)
+
+#define SSD1322_SEGREMAP_B_DEFAULT (SSD1322_SEGREMAP_B_DUAL_COM_MODE | SSD1322_SEGREMAP_B_BASELINE)
+
+#define SSD1322_CMDLOCK_RESET 0x12
+
+
 /*! The controller object for SSD1322 OLED displays */
 class Adafruit_SSD1322 : public Adafruit_GrayOLED {
 public:
@@ -96,6 +114,7 @@ public:
   void allPixelOff();
   void allPixelOn();
   void setContrast(uint8_t level);
+  void setMirror(bool m);
   void draw4bppBitmap(const uint8_t bitmap[]);
   void draw4bppBitmap(uint8_t *bitmap);
   GFXfont * getFont();
