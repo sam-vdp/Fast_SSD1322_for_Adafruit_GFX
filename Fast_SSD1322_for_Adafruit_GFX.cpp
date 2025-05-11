@@ -34,7 +34,10 @@ You will find the orginal Library here https://github.com/adafruit/Adafruit_SSD1
 
 
 #include "Fast_SSD1322_for_Adafruit_GFX.h"
+
+#ifdef ADAFRUIT_SPLASH
 #include "splash.h"
+#endif
 
 // CONSTRUCTORS, DESTRUCTOR ------------------------------------------------
 
@@ -300,38 +303,26 @@ void Adafruit_SSD1322::display(void) {
 
   unsigned long write_buffer_start = micros();
 
-  size_t write_buffer_pos = 0;
+  // Number of bytes to read from the input buffer
+  int16_t dirty_bytes_per_row = (hw_col_end - hw_col_start + 1) * 2;
+  uint8_t *out_ptr = write_buffer;
+  uint8_t *in_ptr = &buffer[first_dirty_row * bytes_per_row + first_dirty_col/2];
 
   // Fill the write buffer
-  // The 128x64 display uses one byte per pixel, with the 4-bit value for each
-  // pixel repeated twice in each byte
+  // The 128x64 display uses one byte per pixel two pixels
   for (uint8_t row = first_dirty_row; row <= last_dirty_row; row++) {
-    // Pointer into the input buffer
-    uint8_t *in_ptr = &buffer[row * bytes_per_row + first_dirty_col/2];
-    // Number of bytes to read from the input buffer
-    uint8_t dirty_bytes_per_row = (last_dirty_col - first_dirty_col + 1) / 2;
-    // Points after the end of the input
-    uint8_t *in_end = in_ptr + dirty_bytes_per_row;
-    // Pointer into the output buffer
-    uint8_t *out_ptr = &write_buffer[write_buffer_pos];
-    while (in_ptr < in_end) {
-      // Get the next byte (= next two input pixels)
-      uint8_t val = *(in_ptr++);
-      // Unpack the two pixels
-      uint8_t val1 = val & 0xF0;
-      uint8_t val2 = val & 0x0F;
-      // Duplicate the nibbles and write the output
-      *(out_ptr++) = val1 | (val1 >> 4);
-      *(out_ptr++) = (val2 << 4) | val2;
-    }
-    // Two output bytes per input byte
-    write_buffer_pos += 2 * dirty_bytes_per_row;
+    // Pointer into the input buffer    
+    memcpy(out_ptr, in_ptr, dirty_bytes_per_row);
+    out_ptr += dirty_bytes_per_row;
+    in_ptr += bytes_per_row;
   }
+
+  size_t write_buffer_size = (last_dirty_row - first_dirty_row + 1) * dirty_bytes_per_row;
 
   if (i2c_dev) { // I2C
     // TODO: the I2C code is untested
     uint8_t *ptr = write_buffer;
-    uint16_t bytes_remaining = write_buffer_pos;
+    uint16_t bytes_remaining = write_buffer_size;
     while (bytes_remaining) {
       uint16_t to_write = min(bytes_remaining, maxbuff);
       i2c_dev->write(ptr, to_write, true, &dc_byte, 1);
@@ -343,7 +334,7 @@ void Adafruit_SSD1322::display(void) {
     digitalWrite(dcPin, HIGH);
     // write_and_read() is a lot faster than write(), but it overwrites the buffer.
     // that's fine for us, since we use a write buffer
-    spi_dev->write_and_read(write_buffer, write_buffer_pos);
+    spi_dev->write_and_read(write_buffer, write_buffer_size);
   }
 
   if (i2c_dev) { // I2C
